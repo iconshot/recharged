@@ -1,0 +1,17 @@
+{
+  "name": "recharged",
+  "version": "1.0.14",
+  "description": "Document-oriented database driver.",
+  "homepage": "https://recharged.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iconshot/recharged.git"
+  },
+  "main": "index.js",
+  "keywords": [
+    "database",
+    "document",
+    "dbms"
+  ],
+  "license": "MIT"
+}
