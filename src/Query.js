@@ -282,23 +282,39 @@ class Query {
           ? items.slice(this.offset, this.offset + this.length)
           : items.slice(this.offset);
 
-      for (const { document, index } of finalItems) {
+      // unique file indexes
+
+      const indexes = finalItems
+        .filter(
+          (item, i) =>
+            finalItems.findIndex((tmpItem) => tmpItem.index === item.index) ===
+            i
+        )
+        .map((item) => item.index);
+
+      for (const index of indexes) {
         const file = files[index];
 
         const content = contents[index];
 
-        const i = content.indexOf(document);
+        const documents = finalItems
+          .filter((item) => item.index === index)
+          .map((item) => item.document);
 
-        const data =
-          typeof updater === "function" ? await updater(document) : updater;
+        for (const document of documents) {
+          const i = content.indexOf(document);
 
-        const newDocument = { ...document, ...data };
+          const data =
+            typeof updater === "function" ? await updater(document) : updater;
 
-        if (timestamps && !("updatedAt" in data)) {
-          newDocument.updatedAt = new Date();
+          const newDocument = { ...document, ...data };
+
+          if (timestamps && !("updatedAt" in data)) {
+            newDocument.updatedAt = new Date();
+          }
+
+          content[i] = newDocument; // replace document
         }
-
-        content[i] = newDocument;
 
         await file.write(content);
       }
@@ -429,14 +445,32 @@ class Query {
           ? items.slice(this.offset, this.offset + this.length)
           : items.slice(this.offset);
 
-      for (const { document, index } of finalItems) {
+      // unique file indexes
+
+      const indexes = finalItems
+        .filter(
+          (item, i) =>
+            finalItems.findIndex((tmpItem) => tmpItem.index === item.index) ===
+            i
+        )
+        .map((item) => item.index);
+
+      for (const index of indexes) {
         const file = files[index];
 
-        contents[index] = contents[index].filter(
-          (tmpDocument) => tmpDocument !== document
-        );
+        let newContent = [...contents[index]];
 
-        await file.write(contents[index]);
+        const documents = finalItems
+          .filter((item) => item.index === index)
+          .map((item) => item.document);
+
+        for (const document of documents) {
+          newContent = newContent.filter(
+            (tmpDocument) => tmpDocument !== document
+          );
+        }
+
+        await file.write(newContent);
       }
 
       return finalItems.length;
