@@ -35,8 +35,6 @@ class Collection {
     }
 
     this.maxDocuments = Math.floor(this.maxFileSize / maxDocumentSizeWithSpace);
-
-    this.maxDocuments = 2;
   }
 
   getName() {
