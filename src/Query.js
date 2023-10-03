@@ -564,7 +564,7 @@ class Query {
   }
 
   async exists() {
-    const count = await this.count();
+    const count = await this.limit(1).count();
 
     return count !== 0;
   }
