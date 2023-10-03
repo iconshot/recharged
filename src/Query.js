@@ -168,19 +168,21 @@ class Query {
       return [];
     }
 
+    const tmpFiles = await fsp.readdir(dir);
+
     if (this.sorter !== null) {
       const documents = [];
 
-      let i = -1;
+      let i = tmpFiles.length;
 
       while (true) {
-        i++;
+        i--;
 
-        const file = new File(this.collection, i);
-
-        if (!(await file.exists())) {
+        if (i < 0) {
           break;
         }
+
+        const file = new File(this.collection, i);
 
         const content = await file.read();
 
@@ -203,20 +205,22 @@ class Query {
 
       let skip = 0;
 
-      let i = -1;
+      let i = tmpFiles.length;
 
       while (true) {
-        i++;
+        i--;
 
-        const file = new File(this.collection, i);
-
-        if (!(await file.exists())) {
+        if (i < 0) {
           break;
         }
 
+        const file = new File(this.collection, i);
+
         const content = await file.read();
 
-        for (const document of content) {
+        for (let j = content.length - 1; j >= 0; j--) {
+          const document = content[j];
+
           if (this.finder !== null && !this.finder(document)) {
             continue;
           }
@@ -266,35 +270,38 @@ class Query {
       return 0;
     }
 
+    const tmpFiles = await fsp.readdir(dir);
+
     if (this.sorter !== null) {
       const files = [];
       const contents = [];
 
       const items = [];
 
-      let i = -1;
+      let i = tmpFiles.length;
 
       while (true) {
-        i++;
+        i--;
 
-        const file = new File(this.collection, i);
-
-        if (!(await file.exists())) {
+        if (i < 0) {
           break;
         }
 
-        files.push(file);
+        const file = new File(this.collection, i);
 
         const content = await file.read();
 
+        files.push(file);
         contents.push(content);
+
+        const index = files.length - 1;
 
         for (const document of content) {
           if (this.finder !== null && !this.finder(document)) {
             continue;
           }
 
-          items.push({ document, index: i });
+          items.push({ document, index });
         }
       }
 
@@ -347,25 +354,23 @@ class Query {
       let skip = 0;
       let length = 0;
 
-      let i = -1;
+      let i = tmpFiles.length;
 
       while (true) {
-        i++;
+        i--;
 
-        const file = new File(this.collection, i);
-
-        if (!(await file.exists())) {
+        if (i < 0) {
           break;
         }
+
+        const file = new File(this.collection, i);
 
         const content = await file.read();
 
         let updated = false;
 
-        let j = -1;
-
-        for (const document of content) {
-          j++;
+        for (let j = content.length - 1; j >= 0; j--) {
+          const document = content[j];
 
           if (this.finder !== null && !this.finder(document)) {
             continue;
@@ -429,35 +434,38 @@ class Query {
       return 0;
     }
 
+    const tmpFiles = await fsp.readdir(dir);
+
     if (this.sorter !== null) {
       const files = [];
       const contents = [];
 
       const items = [];
 
-      let i = -1;
+      let i = tmpFiles.length;
 
       while (true) {
-        i++;
+        i--;
 
-        const file = new File(this.collection, i);
-
-        if (!(await file.exists())) {
+        if (i < 0) {
           break;
         }
 
-        files.push(file);
+        const file = new File(this.collection, i);
 
         const content = await file.read();
 
+        files.push(file);
         contents.push(content);
+
+        const index = files.length - 1;
 
         for (const document of content) {
           if (this.finder !== null && !this.finder(document)) {
             continue;
           }
 
-          items.push({ document, index: i });
+          items.push({ document, index });
         }
       }
 
@@ -501,22 +509,24 @@ class Query {
       let skip = 0;
       let length = 0;
 
-      let i = -1;
+      let i = tmpFiles.length;
 
       while (true) {
-        i++;
+        i--;
 
-        const file = new File(this.collection, i);
-
-        if (!(await file.exists())) {
+        if (i < 0) {
           break;
         }
+
+        const file = new File(this.collection, i);
 
         const content = await file.read();
 
         let newContent = [...content];
 
-        for (const document of content) {
+        for (let j = content.length - 1; j >= 0; j--) {
+          const document = content[j];
+
           if (this.finder !== null && !this.finder(document)) {
             continue;
           }
