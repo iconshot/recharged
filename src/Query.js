@@ -42,26 +42,29 @@ class Query {
     return this;
   }
 
-  async create(documents) {
+  async create(items) {
     const maxDocuments = this.collection.getMaxDocuments();
     const dir = this.collection.getDir();
 
     const { timestamps = false } = this.collection.getOptions();
 
-    if (!Array.isArray(documents)) {
-      // if not array, create document
+    const documents = [];
 
-      const document = documents;
+    for (const item of items) {
+      let file = null;
+      let index = null;
+
+      // if not array, create document
 
       if (timestamps) {
         const date = new Date();
 
-        if (!("createdAt" in document)) {
-          document.createdAt = date;
+        if (!("createdAt" in item)) {
+          item.createdAt = date;
         }
 
-        if (!("updatedAt" in document)) {
-          document.updatedAt = date;
+        if (!("updatedAt" in item)) {
+          item.updatedAt = date;
         }
       }
 
@@ -70,59 +73,73 @@ class Query {
       } catch (error) {
         // create first file
 
-        const file = new File(this.collection, 0);
+        file = new File(this.collection, 0);
 
-        const content = [document];
+        index = 0;
+
+        const content = [item];
 
         await file.write(content);
-
-        return;
       }
 
       const tmpFiles = await fsp.readdir(dir);
 
-      let i = tmpFiles.length;
+      if (index === null) {
+        let i = tmpFiles.length;
 
-      while (true) {
-        i--;
+        while (true) {
+          i--;
 
-        const file = new File(this.collection, i);
+          if (i < 0) {
+            break;
+          }
 
-        if (!(await file.exists())) {
-          break; // -1 reached
+          file = new File(this.collection, i);
+
+          const content = await file.read();
+
+          if (content.length === maxDocuments) {
+            continue; // check the file before
+          }
+
+          // overwrite file
+
+          index = content.length;
+
+          const newContent = [...content, item];
+
+          await file.write(newContent);
+
+          break;
         }
-
-        const content = await file.read();
-
-        if (content.length === maxDocuments) {
-          continue; // check the file before
-        }
-
-        // overwrite file
-
-        const newContent = [...content, document];
-
-        await file.write(newContent);
-
-        return;
       }
 
-      // create new file
+      if (index === null) {
+        // create new file
 
-      const file = new File(this.collection, tmpFiles.length);
+        file = new File(this.collection, tmpFiles.length);
 
-      const content = [document];
+        index = 0;
 
-      await file.write(content);
+        const content = [item];
 
-      return;
+        await file.write(content);
+      }
+
+      const tmpContent = await file.read();
+
+      const document = tmpContent[index];
+
+      documents.push(document);
     }
 
-    // if array, create loop
+    return documents;
+  }
 
-    for (const document of documents) {
-      await this.create(document);
-    }
+  async createOne(item) {
+    const documents = await this.create([item]);
+
+    return documents[0];
   }
 
   /*
