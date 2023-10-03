@@ -18,10 +18,16 @@ class Query {
     return this;
   }
 
+  findByIds(ids) {
+    this.find((document) => ids.includes(document._id.toString()));
+
+    return this.limit(ids.length);
+  }
+
   findById(id) {
     this.find((document) => document._id.toString() === id);
 
-    return this;
+    return this.limit(1);
   }
 
   sort(sorter) {
