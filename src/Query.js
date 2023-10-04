@@ -335,7 +335,7 @@ class Query {
           const i = content.indexOf(document);
 
           const data =
-            typeof updater === "function" ? await updater(document) : updater;
+            typeof updater === "function" ? updater(document) : updater;
 
           const newDocument = { ...document, ...data };
 
@@ -383,7 +383,7 @@ class Query {
           }
 
           const data =
-            typeof updater === "function" ? await updater(document) : updater;
+            typeof updater === "function" ? updater(document) : updater;
 
           const newDocument = { ...document, ...data };
 
