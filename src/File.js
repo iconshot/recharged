@@ -37,6 +37,10 @@ class File {
 
     const json = await fsp.readFile(file, { encoding: "utf-8" });
 
+    if (json.length === 0) {
+      return await this.read();
+    }
+
     const content = this.decode(JSON.parse(json));
 
     return content;
