@@ -49,16 +49,16 @@ class Query {
   }
 
   async create(items) {
-    const maxDocuments = this.collection.getMaxDocuments();
     const dir = this.collection.getDir();
+    const maxDocuments = this.collection.getMaxDocuments();
 
     const { timestamps = false } = this.collection.getOptions();
 
     const documents = [];
 
     for (const item of items) {
-      let file = null;
-      let index = null;
+      let newDocuments = null;
+      let newIndex = null;
 
       // if not array, create document
 
@@ -79,18 +79,18 @@ class Query {
       } catch (error) {
         // create first file
 
-        file = new File(this.collection, 0);
+        const file = new File(this.collection, 0);
 
-        index = 0;
+        const newItems = [item];
 
-        const content = [item];
+        newDocuments = await file.write(newItems);
 
-        await file.write(content);
+        newIndex = 0;
       }
 
       const tmpFiles = await fsp.readdir(dir);
 
-      if (index === null) {
+      if (newIndex === null) {
         let i = tmpFiles.length;
 
         while (true) {
@@ -100,41 +100,39 @@ class Query {
             break;
           }
 
-          file = new File(this.collection, i);
+          const file = new File(this.collection, i);
 
-          const content = await file.read();
+          const documents = await file.read();
 
-          if (content.length === maxDocuments) {
+          if (documents.length === maxDocuments) {
             continue; // check the file before
           }
 
           // overwrite file
 
-          index = content.length;
+          const newItems = [...documents, item];
 
-          const newContent = [...content, item];
+          newDocuments = await file.write(newItems);
 
-          await file.write(newContent);
+          newIndex = newDocuments.length - 1;
 
           break;
         }
       }
 
-      if (index === null) {
+      if (newIndex === null) {
         // create new file
 
-        file = new File(this.collection, tmpFiles.length);
+        const file = new File(this.collection, tmpFiles.length);
 
-        index = 0;
+        const newItems = [item];
 
-        const content = [item];
+        newDocuments = await file.write(newItems);
 
-        await file.write(content);
+        newIndex = 0;
       }
 
-      const tmpContent = await file.read();
-
-      const document = tmpContent[index];
+      const document = newDocuments[newIndex];
 
       documents.push(document);
     }
@@ -184,9 +182,9 @@ class Query {
 
         const file = new File(this.collection, i);
 
-        const content = await file.read();
+        const tmpDocuments = await file.read();
 
-        for (const document of content) {
+        for (const document of tmpDocuments) {
           if (this.finder !== null && !this.finder(document)) {
             continue;
           }
@@ -216,10 +214,10 @@ class Query {
 
         const file = new File(this.collection, i);
 
-        const content = await file.read();
+        const tmpDocuments = await file.read();
 
-        for (let j = content.length - 1; j >= 0; j--) {
-          const document = content[j];
+        for (let j = tmpDocuments.length - 1; j >= 0; j--) {
+          const document = tmpDocuments[j];
 
           if (this.finder !== null && !this.finder(document)) {
             continue;
@@ -261,13 +259,13 @@ class Query {
     const { timestamps = false } = this.collection.getOptions();
 
     if (this.length === 0) {
-      return 0;
+      return [];
     }
 
     try {
       await fsp.access(dir);
     } catch (error) {
-      return 0;
+      return [];
     }
 
     const tmpFiles = await fsp.readdir(dir);
@@ -322,35 +320,48 @@ class Query {
         )
         .map((item) => item.index);
 
+      const documents = [];
+
       for (const index of indexes) {
         const file = files[index];
-
         const content = contents[index];
 
-        const documents = finalItems
+        const tmpDocuments = finalItems
           .filter((item) => item.index === index)
           .map((item) => item.document);
 
-        for (const document of documents) {
+        const updatedIndexes = [];
+
+        for (const document of tmpDocuments) {
           const i = content.indexOf(document);
 
           const data =
             typeof updater === "function" ? updater(document) : updater;
 
-          const newDocument = { ...document, ...data };
+          const item = { ...document, ...data }; // merge
 
           if (timestamps && !("updatedAt" in data)) {
-            newDocument.updatedAt = new Date();
+            item.updatedAt = new Date();
           }
 
-          content[i] = newDocument; // replace document
+          content[i] = item; // replace
+
+          updatedIndexes.push(i);
         }
 
-        await file.write(content);
+        const newDocuments = await file.write(content);
+
+        for (const updatedIndex of updatedIndexes) {
+          const newDocument = newDocuments[updatedIndex];
+
+          documents.push(newDocument);
+        }
       }
 
-      return finalItems.length;
+      return documents;
     } else {
+      const documents = [];
+
       let skip = 0;
       let length = 0;
 
@@ -367,7 +378,7 @@ class Query {
 
         const content = await file.read();
 
-        let updated = false;
+        const updatedIndexes = [];
 
         for (let j = content.length - 1; j >= 0; j--) {
           const document = content[j];
@@ -385,15 +396,15 @@ class Query {
           const data =
             typeof updater === "function" ? updater(document) : updater;
 
-          const newDocument = { ...document, ...data };
+          const item = { ...document, ...data }; // merge
 
           if (timestamps && !("updatedAt" in data)) {
-            newDocument.updatedAt = new Date();
+            item.updatedAt = new Date();
           }
 
-          content[j] = newDocument;
+          content[j] = item; // replace
 
-          updated = true;
+          updatedIndexes.push(j);
 
           length++;
 
@@ -402,8 +413,14 @@ class Query {
           }
         }
 
-        if (updated) {
-          await file.write(content);
+        if (updatedIndexes.length > 0) {
+          const newDocuments = await file.write(content);
+
+          for (const updatedIndex of updatedIndexes) {
+            const newDocument = newDocuments[updatedIndex];
+
+            documents.push(newDocument);
+          }
         }
 
         if (this.length === length) {
@@ -411,12 +428,14 @@ class Query {
         }
       }
 
-      return length;
+      return documents;
     }
   }
 
   async updateOne(updater = {}) {
-    return await this.limit(1).update(updater);
+    const documents = await this.limit(1).update(updater);
+
+    return documents.length !== 0 ? documents[0] : null;
   }
 
   // consistent with update
@@ -425,13 +444,13 @@ class Query {
     const dir = this.collection.getDir();
 
     if (this.length === 0) {
-      return 0;
+      return [];
     }
 
     try {
       await fsp.access(dir);
     } catch (error) {
-      return 0;
+      return [];
     }
 
     const tmpFiles = await fsp.readdir(dir);
@@ -488,14 +507,17 @@ class Query {
 
       for (const index of indexes) {
         const file = files[index];
+        const content = contents[index];
 
-        let newContent = [...contents[index]];
+        let newContent = [...content];
 
-        const documents = finalItems
+        const tmpDocuments = finalItems
           .filter((item) => item.index === index)
           .map((item) => item.document);
 
-        for (const document of documents) {
+        for (const document of tmpDocuments) {
+          // filter out
+
           newContent = newContent.filter(
             (tmpDocument) => tmpDocument !== document
           );
@@ -504,8 +526,10 @@ class Query {
         await file.write(newContent);
       }
 
-      return finalItems.length;
+      return finalItems.map((item) => item.document);
     } else {
+      const documents = [];
+
       let skip = 0;
       let length = 0;
 
@@ -524,6 +548,8 @@ class Query {
 
         let newContent = [...content];
 
+        const deletedIndexes = [];
+
         for (let j = content.length - 1; j >= 0; j--) {
           const document = content[j];
 
@@ -537,19 +563,29 @@ class Query {
             continue;
           }
 
+          // filter out
+
           newContent = newContent.filter(
             (tmpDocument) => tmpDocument !== document
           );
 
           length++;
 
+          deletedIndexes.push(j);
+
           if (this.length === length) {
             break;
           }
         }
 
-        if (newContent.length !== content.length) {
+        if (deletedIndexes.length > 0) {
           await file.write(newContent);
+
+          for (const deletedIndex of deletedIndexes) {
+            const document = content[deletedIndex];
+
+            documents.push(document);
+          }
         }
 
         if (this.length === length) {
@@ -557,12 +593,14 @@ class Query {
         }
       }
 
-      return length;
+      return documents;
     }
   }
 
   async deleteOne() {
-    return await this.limit(1).delete();
+    const documents = await this.limit(1).delete();
+
+    return documents.length !== 0 ? documents[0] : null;
   }
 
   // utilities

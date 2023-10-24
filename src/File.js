@@ -10,26 +10,10 @@ class File {
     this.index = index;
   }
 
-  getMaxFileSize() {
-    return this.maxFileSize;
-  }
-
   getFile() {
     const dir = this.collection.getDir();
 
     return path.resolve(dir, `${this.index}.json`);
-  }
-
-  async exists() {
-    try {
-      const file = this.getFile();
-
-      await fsp.access(file);
-
-      return true;
-    } catch (error) {
-      return false;
-    }
   }
 
   async read() {
@@ -41,50 +25,58 @@ class File {
       return await this.read();
     }
 
-    const content = this.decode(JSON.parse(json));
+    const items = JSON.parse(json);
 
-    return content;
+    const documents = this.decode(items);
+
+    return documents;
   }
 
-  async write(content) {
+  async write(items) {
     const file = this.getFile();
 
     const dir = path.dirname(file);
 
     await fsp.mkdir(dir, { recursive: true });
 
-    const json = JSON.stringify(this.encode(content));
+    const documents = this.encode(items);
+
+    const json = JSON.stringify(documents);
 
     await fsp.writeFile(file, json);
+
+    return documents;
   }
 
-  encode(data) {
+  encode(items) {
     const schema = this.collection.getSchema();
 
     const maxDocumentSize = this.collection.getMaxDocumentSize();
 
     const encoder = new TextEncoder();
 
-    return data.map((value) => {
-      const tmpValue = this.encodeData(value, schema, null, true);
+    return items.map((item) => {
+      const document = this.encodeItem(item, schema, null, true);
 
       // check document size
 
-      const encoded = encoder.encode(JSON.stringify(tmpValue));
+      const json = JSON.stringify(document);
+
+      const encoded = encoder.encode(json);
 
       if (encoded.length > maxDocumentSize) {
         throw new Error(`Max document size is ${maxDocumentSize} bytes.`);
       }
 
-      return tmpValue;
+      return document;
     });
   }
 
-  encodeData(data, schema, objectKey, setId) {
+  encodeItem(item, schema, objectKey, setId) {
     const document = {};
 
     if (setId) {
-      document._id = "_id" in data ? data._id : new ObjectId();
+      document._id = "_id" in item ? item._id : new ObjectId();
     }
 
     for (const key in schema) {
@@ -100,7 +92,7 @@ class File {
         enum: valueEnum = null,
       } = schema[key];
 
-      let { [key]: value = defaultValue } = data;
+      let { [key]: value = defaultValue } = item;
 
       if (valueEnum !== null && !valueEnum.includes(value)) {
         throw new Error(
@@ -160,7 +152,7 @@ class File {
         }
 
         if (!Array.isArray(type) && typeof type === "object") {
-          value = this.encodeData(value, type, propertyKey, setValueId);
+          value = this.encodeItem(value, type, propertyKey, setValueId);
         }
 
         if (Array.isArray(type)) {
@@ -224,7 +216,7 @@ class File {
               }
 
               if (typeof tmpType === "object") {
-                tmpValue = this.encodeData(
+                tmpValue = this.encodeItem(
                   tmpValue,
                   tmpType,
                   `${propertyKey}[${i}]`,
@@ -244,17 +236,17 @@ class File {
     return document;
   }
 
-  decode(data) {
+  decode(items) {
     const schema = this.collection.getSchema();
 
-    return data.map((value) => this.decodeData(value, schema));
+    return items.map((item) => this.decodeItem(item, schema));
   }
 
-  decodeData(data, schema) {
+  decodeItem(item, schema) {
     const document = {};
 
-    for (const key in data) {
-      let value = data[key];
+    for (const key in item) {
+      let value = item[key];
 
       if (key === "_id") {
         value = new ObjectId(value);
@@ -273,7 +265,7 @@ class File {
           }
 
           if (!Array.isArray(type) && typeof type === "object") {
-            value = this.decodeData(value, type);
+            value = this.decodeItem(value, type);
           }
 
           if (Array.isArray(type)) {
@@ -290,7 +282,7 @@ class File {
                 }
 
                 if (typeof tmpType === "object") {
-                  tmpValue = this.decodeData(tmpValue, tmpType);
+                  tmpValue = this.decodeItem(tmpValue, tmpType);
                 }
               }
 
