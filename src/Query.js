@@ -47,7 +47,7 @@ class Query {
     return this;
   }
 
-  action(closure) {
+  queue(closure) {
     return new Promise((resolve, reject) => {
       const action = new Action(closure, resolve, reject);
 
@@ -56,7 +56,7 @@ class Query {
   }
 
   async create(items) {
-    return await this.action(async () => {
+    return await this.queue(async () => {
       const cache = this.collection.getCache();
       const maxDocuments = this.collection.getMaxDocuments();
 
@@ -161,7 +161,7 @@ class Query {
   */
 
   async fetch() {
-    return await this.action(async () => {
+    return await this.queue(async () => {
       const cache = this.collection.getCache();
 
       if (this.length === 0) {
@@ -257,7 +257,7 @@ class Query {
   // object returned by updater will be merged with current document
 
   async update(updater = {}) {
-    return await this.action(async () => {
+    return await this.queue(async () => {
       const cache = this.collection.getCache();
 
       const { timestamps = false } = this.collection.getOptions();
@@ -445,7 +445,7 @@ class Query {
   // consistent with update
 
   async delete() {
-    return await this.action(async () => {
+    return await this.queue(async () => {
       const cache = this.collection.getCache();
 
       if (this.length === 0) {
