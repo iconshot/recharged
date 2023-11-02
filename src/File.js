@@ -17,22 +17,26 @@ class File {
   }
 
   async read() {
+    const cache = this.collection.getCache();
+
     const file = this.getFile();
 
     const json = await fsp.readFile(file, { encoding: "utf-8" });
 
     if (json.length === 0) {
-      return await this.read();
+      throw new Error("Empty file content.");
     }
 
     const items = JSON.parse(json);
 
     const documents = this.decode(items);
 
-    return documents;
+    cache.set(this.index, documents);
   }
 
   async write(items) {
+    const cache = this.collection.getCache();
+
     const file = this.getFile();
 
     const dir = path.dirname(file);
@@ -40,6 +44,8 @@ class File {
     await fsp.mkdir(dir, { recursive: true });
 
     const documents = this.encode(items);
+
+    cache.set(this.index, documents);
 
     const json = JSON.stringify(documents);
 

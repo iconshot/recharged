@@ -1,7 +1,7 @@
 {
   "name": "recharged",
-  "version": "1.1.1",
-  "description": "Document-oriented database driver.",
+  "version": "2.0.0",
+  "description": "Document-oriented database management system.",
   "homepage": "https://recharged.dev",
   "repository": {
     "type": "git",

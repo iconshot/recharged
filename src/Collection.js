@@ -35,6 +35,12 @@ class Collection {
     }
 
     this.maxDocuments = Math.floor(this.maxFileSize / maxDocumentSizeWithSpace);
+
+    // queue
+
+    this.actions = [];
+
+    this.running = false;
   }
 
   getName() {
@@ -67,8 +73,8 @@ class Collection {
     return path.resolve(dir, this.name);
   }
 
-  query() {
-    return new Query(this);
+  getCache() {
+    return this.database.getCache(this.name);
   }
 
   parse(schema, objectKey = null) {
@@ -99,6 +105,36 @@ class Collection {
         }
       }
     }
+  }
+
+  query() {
+    return new Query(this);
+  }
+
+  queue(action) {
+    this.actions.push(action);
+
+    this.run();
+  }
+
+  async run() {
+    if (this.running) {
+      return;
+    }
+
+    if (this.actions.length === 0) {
+      return;
+    }
+
+    this.running = true;
+
+    const action = this.actions.shift();
+
+    await action.run();
+
+    this.running = false;
+
+    this.run();
   }
 }
 
