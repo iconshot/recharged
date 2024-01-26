@@ -1,6 +1,6 @@
 {
   "name": "recharged",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Document-oriented database management system.",
   "homepage": "https://recharged.dev",
   "repository": {
@@ -10,6 +10,7 @@
   "main": "index.js",
   "keywords": [
     "database",
+    "collection",
     "document",
     "dbms"
   ],

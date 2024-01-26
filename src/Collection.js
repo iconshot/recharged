@@ -1,46 +1,14 @@
-const path = require("path");
-
 const Query = require("./Query");
+const ObjectId = require("./ObjectId");
 
 class Collection {
-  constructor(name, schema, options, database) {
-    this.parse(schema);
-
+  constructor(name, schema, options, client) {
     this.name = name;
-    this.schema = schema;
     this.options = options;
 
-    this.database = database;
+    this.schema = this.parse(schema);
 
-    const {
-      timestamps = false,
-      maxDocumentSize = 1048576, // 1 mb
-    } = options;
-
-    if (timestamps) {
-      this.schema.createdAt = { type: Date, required: true };
-      this.schema.updatedAt = { type: Date, required: true };
-    }
-
-    this.maxFileSize = 524288000; // 500 mb
-
-    this.maxDocumentSize = maxDocumentSize;
-
-    const maxDocumentSizeWithSpace = maxDocumentSize + 1000; // make room for [] and commas
-
-    if (maxDocumentSizeWithSpace > this.maxFileSize) {
-      throw new Error(
-        `Max file size is ${this.maxFileSize} bytes, try a lower max document size.`
-      );
-    }
-
-    this.maxDocuments = Math.floor(this.maxFileSize / maxDocumentSizeWithSpace);
-
-    // queue
-
-    this.actions = [];
-
-    this.running = false;
+    this.client = client;
   }
 
   getName() {
@@ -51,90 +19,121 @@ class Collection {
     return this.schema;
   }
 
-  getOptions() {
-    return this.options;
-  }
-
-  getDatabase() {
-    return this.database;
-  }
-
-  getMaxDocumentSize() {
-    return this.maxDocumentSize;
-  }
-
-  getMaxDocuments() {
-    return this.maxDocuments;
-  }
-
-  getDir() {
-    const dir = this.database.getDir();
-
-    return path.resolve(dir, this.name);
-  }
-
-  getCache() {
-    return this.database.getCache(this.name);
-  }
-
-  parse(schema, objectKey = null) {
-    for (const key in schema) {
-      const { type = null } = schema[key];
-
-      let propertyKey = objectKey !== null ? `${objectKey}.${key}` : key;
-
-      if (type === null) {
-        throw new Error(`Property "${propertyKey}" has an invalid type.`);
-      }
-
-      if (!Array.isArray(type) && typeof type === "object") {
-        this.parse(type, propertyKey);
-      }
-
-      if (Array.isArray(type)) {
-        const { type: tmpType = null } = type[0];
-
-        if (tmpType === null) {
-          throw new Error(
-            `Property "${propertyKey}" has an invalid type for its items.`
-          );
-        }
-
-        if (!Array.isArray(tmpType) && typeof tmpType === "object") {
-          this.parse(tmpType, `${propertyKey}[]`);
-        }
-      }
-    }
+  getClient() {
+    return this.client;
   }
 
   query() {
     return new Query(this);
   }
 
-  queue(action) {
-    this.actions.push(action);
-
-    this.run();
+  isValid(key) {
+    return /^(?:(?![\$\[\].]).)*$/.test(key);
   }
 
-  async run() {
-    if (this.running) {
-      return;
+  parse(schema, id = true, propertyPath = null) {
+    if (
+      !(schema !== null && typeof schema === "object" && !Array.isArray(schema))
+    ) {
+      throw new Error('"schema" must be an object.');
     }
 
-    if (this.actions.length === 0) {
-      return;
+    const tmpSchema = {};
+
+    if (id) {
+      tmpSchema.id = this.parseFormat({ type: ObjectId });
     }
 
-    this.running = true;
+    for (const key in schema) {
+      if (key === "id") {
+        continue;
+      }
 
-    const action = this.actions.shift();
+      if (!this.isValid(key)) {
+        throw new Error(`Property name "${key}" is not valid.`);
+      }
 
-    await action.run();
+      const format = schema[key];
 
-    this.running = false;
+      const tmpPropertyPath =
+        propertyPath !== null ? `${propertyPath}.${key}` : key;
 
-    this.run();
+      tmpSchema[key] = this.parseFormat(format, tmpPropertyPath);
+    }
+
+    return tmpSchema;
+  }
+
+  parseFormat(format, propertyPath) {
+    if (
+      !(format !== null && typeof format === "object" && !Array.isArray(format))
+    ) {
+      throw new Error(`"format" for "${propertyPath}" must be an object.`);
+    }
+
+    const {
+      type = null,
+      id = true,
+      required = false,
+      default: tmpDefault = null,
+      enum: tmpEnum = null,
+    } = format;
+
+    if (
+      !(
+        type === Boolean ||
+        type === String ||
+        type === Number ||
+        type === ObjectId ||
+        type === Date ||
+        Array.isArray(type) ||
+        (type !== null && typeof type === "object")
+      )
+    ) {
+      throw new Error(
+        `Format property "type" for "${propertyPath}" must be Boolean, String, Number, ObjectId, Date, Array or an schema object.`
+      );
+    }
+
+    if (!(typeof id === "boolean")) {
+      throw new Error(
+        `Format property "id" for "${propertyPath}" must be boolean.`
+      );
+    }
+
+    if (!(typeof required === "boolean")) {
+      throw new Error(
+        `Format property "required" for "${propertyPath}" must be boolean.`
+      );
+    }
+
+    if (!(tmpEnum === null || Array.isArray(tmpEnum))) {
+      throw new Error(
+        `Format property "enum" for "${propertyPath}" must be null or an array.`
+      );
+    }
+
+    const tmpFormat = {
+      type,
+      id,
+      required,
+      default: tmpDefault,
+      enum: tmpEnum,
+    };
+
+    if (Array.isArray(type)) {
+      const tmpPropertyPath = `${propertyPath}[]`;
+
+      const innerFormat = this.parseFormat(type[0], tmpPropertyPath);
+
+      tmpFormat.type = [innerFormat];
+    }
+
+    if (type !== null && typeof type === "object" && !Array.isArray(type)) {
+      tmpFormat.type = this.parse(type, id, propertyPath);
+    }
+
+    return tmpFormat;
   }
 }
 

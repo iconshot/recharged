@@ -1,4 +1,4 @@
-const Database = require("./src/Database");
+const Client = require("./src/Client");
 const ObjectId = require("./src/ObjectId");
 
-module.exports = { Database, ObjectId };
+module.exports = { Client, ObjectId };
