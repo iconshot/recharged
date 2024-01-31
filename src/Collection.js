@@ -4,9 +4,17 @@ const ObjectId = require("./ObjectId");
 class Collection {
   constructor(name, schema, options, client) {
     this.name = name;
-    this.options = options;
+
+    const { timestamps = false } = options;
+
+    if (timestamps) {
+      schema.createdAt = { type: Date, required: true };
+      schema.updatedAt = { type: Date, required: true };
+    }
 
     this.schema = this.parse(schema);
+
+    this.options = { timestamps };
 
     this.client = client;
   }
@@ -17,6 +25,10 @@ class Collection {
 
   getSchema() {
     return this.schema;
+  }
+
+  getOptions() {
+    return this.options;
   }
 
   getClient() {

@@ -63,7 +63,7 @@ class Query {
   }
 
   async create(documents) {
-    this.params.create = this.encode(documents);
+    this.params.create = this.encode(this.timeifyCreate(documents));
 
     {
       const documents = await this.send("create");
@@ -91,7 +91,7 @@ class Query {
   }
 
   async update(update) {
-    this.params.update = update;
+    this.params.update = this.timeifyUpdate(update);
 
     return await this.send("update");
   }
@@ -124,6 +124,40 @@ class Query {
     }
 
     return documents[0];
+  }
+
+  timeifyCreate(documents) {
+    const { timestamps } = this.collection.getOptions();
+
+    if (!timestamps) {
+      return documents;
+    }
+
+    return documents.map((document) => {
+      const date = "createdAt" in document ? document.createdAt : new Date();
+
+      const createdAt = date;
+
+      const updatedAt = "updatedAt" in document ? document.updatedAt : date;
+
+      return { ...document, createdAt, updatedAt };
+    });
+  }
+
+  timeifyUpdate(update) {
+    const { timestamps } = this.collection.getOptions();
+
+    if (!timestamps) {
+      return update;
+    }
+
+    if ("updatedAt" in update) {
+      return update;
+    }
+
+    const updatedAt = { $timestamp: null };
+
+    return { ...update, updatedAt };
   }
 
   encode(documents) {
@@ -161,7 +195,7 @@ class Query {
     const { type, required, default: tmpDefault, enum: tmpEnum } = format;
 
     if (value === undefined) {
-      value = tmpDefault;
+      value = typeof tmpDefault === "function" ? tmpDefault() : tmpDefault;
     }
 
     if (required) {
@@ -272,7 +306,7 @@ class Query {
     const { type, required, default: tmpDefault, enum: tmpEnum } = format;
 
     if (value === undefined) {
-      value = tmpDefault;
+      value = typeof tmpDefault === "function" ? tmpDefault() : tmpDefault;
     }
 
     if (required) {
