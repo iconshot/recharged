@@ -141,6 +141,25 @@ class Socket {
         return value.toString();
       }
 
+      if (Array.isArray(value)) {
+        return value.map((element) =>
+          element instanceof Date ? element.getTime() : element
+        );
+      }
+
+      if (value !== null && typeof value === "object") {
+        const object = {};
+
+        for (const key in value) {
+          const tmpValue = value[key];
+
+          object[key] =
+            tmpValue instanceof Date ? tmpValue.getTime() : tmpValue;
+        }
+
+        return object;
+      }
+
       return value;
     });
 

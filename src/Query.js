@@ -258,8 +258,8 @@ class Query {
           );
         }
 
-        return value.map((tmpValue, i) =>
-          this.encodeFormat(tmpValue, type[0], `${propertyPath}[${i}]`)
+        return value.map((element, i) =>
+          this.encodeFormat(element, type[0], `${propertyPath}[${i}]`)
         );
       }
 
@@ -361,7 +361,7 @@ class Query {
       if (type === Date) {
         const date = new Date(value);
 
-        if (date.toJSON() !== value) {
+        if (date.getTime() !== value) {
           throw new Error(`Decoding value for "${propertyPath}" must be Date.`);
         }
 
@@ -375,8 +375,8 @@ class Query {
           );
         }
 
-        return value.map((tmpValue, i) =>
-          this.decodeFormat(tmpValue, type[0], `${propertyPath}[${i}]`)
+        return value.map((element, i) =>
+          this.decodeFormat(element, type[0], `${propertyPath}[${i}]`)
         );
       }
 
