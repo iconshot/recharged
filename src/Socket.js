@@ -7,6 +7,8 @@ class Socket {
   constructor(client) {
     this.emitter = new EventEmitter();
 
+    this.emitter.setMaxListeners(0);
+
     this.socket = null;
 
     this.results = new Map();
